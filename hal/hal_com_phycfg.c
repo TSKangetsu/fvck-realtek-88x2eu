@@ -5951,9 +5951,11 @@ s8 phy_get_txpwr_regd_lmt(_adapter *adapter, struct hal_spec_t *hal_spec, u8 cch
 	s16 total_mbm = UNSPECIFIED_MBM;
 	s8 lmt;
 
+#ifdef CONFIG_TXPWR_LIMIT
 	if ((adapter->registrypriv.RegEnableTxPowerLimit == 2 && hal_data->EEPROMRegulatory != 1) ||
 		adapter->registrypriv.RegEnableTxPowerLimit == 0)
 		goto exit;
+#endif
 
 #ifdef CONFIG_REGD_SRC_FROM_OS
 	if (rfctl->regd_src == REGD_SRC_OS)

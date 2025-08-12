@@ -66,7 +66,9 @@ void rtw_os_indicate_connect(_adapter *adapter)
 		rtw_cfg80211_indicate_connect(adapter);
 #endif /* CONFIG_IOCTL_CFG80211 */
 
+#ifdef CONFIG_WIRELESS_EXT
 	rtw_indicate_wx_assoc_event(adapter);
+#endif
 
 #ifdef CONFIG_RTW_MESH
 #if CONFIG_RTW_MESH_CTO_MGATE_CARRIER
@@ -91,7 +93,9 @@ void rtw_os_indicate_scan_done(_adapter *padapter, bool aborted)
 #ifdef CONFIG_IOCTL_CFG80211
 	rtw_cfg80211_indicate_scan_done(padapter, aborted);
 #endif
+#ifdef CONFIG_WIRELESS_EXT
 	indicate_wx_scan_complete_event(padapter);
+#endif
 }
 
 static RT_PMKID_LIST   backupPMKIDList[NUM_PMKID_CACHE];
@@ -175,7 +179,9 @@ void rtw_os_indicate_disconnect(_adapter *adapter,  u16 reason, u8 locally_gener
 	rtw_cfg80211_indicate_disconnect(adapter,  reason, locally_generated);
 #endif /* CONFIG_IOCTL_CFG80211 */
 
+#ifdef CONFIG_WIRELESS_EXT
 	rtw_indicate_wx_disassoc_event(adapter);
+#endif
 
 #ifdef RTK_DMP_PLATFORM
 	_set_workitem(&adapter->mlmepriv.Linkdown_workitem);
@@ -186,6 +192,7 @@ void rtw_os_indicate_disconnect(_adapter *adapter,  u16 reason, u8 locally_gener
 
 void rtw_report_sec_ie(_adapter *adapter, u8 authmode, u8 *sec_ie)
 {
+#ifndef CONFIG_IOCTL_CFG80211
 	uint	len;
 	u8	*buff, *p, i;
 	union iwreq_data wrqu;
@@ -219,14 +226,12 @@ void rtw_report_sec_ie(_adapter *adapter, u8 authmode, u8 *sec_ie)
 
 		wrqu.data.length = (wrqu.data.length < IW_CUSTOM_MAX) ? wrqu.data.length : IW_CUSTOM_MAX;
 
-#ifndef CONFIG_IOCTL_CFG80211
 		wireless_send_event(adapter->pnetdev, IWEVCUSTOM, &wrqu, buff);
-#endif
 
 		rtw_mfree(buff, IW_CUSTOM_MAX);
 	}
 
-
+#endif
 }
 
 #ifdef CONFIG_AP_MODE
@@ -252,7 +257,7 @@ void rtw_indicate_sta_assoc_event(_adapter *padapter, struct sta_info *psta)
 
 	RTW_INFO("+rtw_indicate_sta_assoc_event\n");
 
-#ifndef CONFIG_IOCTL_CFG80211
+#ifdef CONFIG_WIRELESS_EXT
 	wireless_send_event(padapter->pnetdev, IWEVREGISTERED, &wrqu, NULL);
 #endif
 
@@ -279,7 +284,7 @@ void rtw_indicate_sta_disassoc_event(_adapter *padapter, struct sta_info *psta)
 
 	RTW_INFO("+rtw_indicate_sta_disassoc_event\n");
 
-#ifndef CONFIG_IOCTL_CFG80211
+#ifdef CONFIG_WIRELESS_EXT
 	wireless_send_event(padapter->pnetdev, IWEVEXPIRED, &wrqu, NULL);
 #endif
 

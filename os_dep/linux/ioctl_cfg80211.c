@@ -2030,11 +2030,6 @@ static int cfg80211_rtw_add_key(struct wiphy *wiphy, struct net_device *ndev
 	_rtw_memset(param->sta_addr, 0xff, ETH_ALEN);
 
 	switch (params->cipher) {
-	case IW_AUTH_CIPHER_NONE:
-		/* todo: remove key */
-		/* remove = 1;	 */
-		alg_name = "none";
-		break;
 	case WLAN_CIPHER_SUITE_WEP40:
 	case WLAN_CIPHER_SUITE_WEP104:
 		alg_name = "WEP";
@@ -3924,14 +3919,6 @@ static int rtw_cfg80211_set_cipher(struct security_priv *psecuritypriv, u32 ciph
 	}
 
 	switch (cipher) {
-	case IW_AUTH_CIPHER_NONE:
-		*profile_cipher = _NO_PRIVACY_;
-		ndisencryptstatus = Ndis802_11EncryptionDisabled;
-#ifdef CONFIG_WAPI_SUPPORT
-		if (psecuritypriv->dot11PrivacyAlgrthm == _SMS4_)
-			*profile_cipher = _SMS4_;
-#endif
-		break;
 	case WLAN_CIPHER_SUITE_WEP40:
 		*profile_cipher = _WEP40_;
 		ndisencryptstatus = Ndis802_11Encryption1Enabled;
@@ -7353,7 +7340,7 @@ void rtw_cfg80211_external_auth_request(_adapter *padapter, union recv_frame *rf
 	struct cfg80211_external_auth_params params = {0};
 	struct net_device *netdev = wdev_to_ndev(wdev);
 
-	params.action = EXTERNAL_AUTH_START;
+	params.action = (enum nl80211_external_auth_action)EXTERNAL_AUTH_START;
 	_rtw_memcpy(params.bssid, get_my_bssid(&pmlmeinfo->network), ETH_ALEN);
 	params.ssid.ssid_len = pmlmeinfo->network.Ssid.SsidLength;
 	_rtw_memcpy(params.ssid.ssid, pmlmeinfo->network.Ssid.Ssid,

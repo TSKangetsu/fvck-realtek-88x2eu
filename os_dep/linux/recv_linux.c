@@ -567,6 +567,8 @@ void rtw_handle_tkip_mic_err(_adapter *padapter, struct sta_info *sta, u8 bgroup
 #ifdef CONFIG_IOCTL_CFG80211
 	enum nl80211_key_type key_type = 0;
 #endif
+
+#ifdef CONFIG_WIRELESS_EXT
 	union iwreq_data wrqu;
 	struct iw_michaelmicfailure    ev;
 	struct security_priv	*psecuritypriv = &padapter->securitypriv;
@@ -584,6 +586,7 @@ void rtw_handle_tkip_mic_err(_adapter *padapter, struct sta_info *sta, u8 bgroup
 		} else
 			psecuritypriv->last_mic_err_time = rtw_get_current_time();
 	}
+#endif
 
 #ifdef CONFIG_IOCTL_CFG80211
 	if (bgroup)
@@ -594,6 +597,7 @@ void rtw_handle_tkip_mic_err(_adapter *padapter, struct sta_info *sta, u8 bgroup
 	cfg80211_michael_mic_failure(padapter->pnetdev, sta->cmn.mac_addr, key_type, -1, NULL, GFP_ATOMIC);
 #endif
 
+#ifdef CONFIG_WIRELESS_EXT
 	_rtw_memset(&ev, 0x00, sizeof(ev));
 	if (bgroup)
 		ev.flags |= IW_MICFAILURE_GROUP;
@@ -605,6 +609,7 @@ void rtw_handle_tkip_mic_err(_adapter *padapter, struct sta_info *sta, u8 bgroup
 
 	_rtw_memset(&wrqu, 0x00, sizeof(wrqu));
 	wrqu.data.length = sizeof(ev);
+#endif
 
 #ifndef CONFIG_IOCTL_CFG80211
 	wireless_send_event(padapter->pnetdev, IWEVMICHAELMICFAILURE, &wrqu, (char *) &ev);

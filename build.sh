@@ -31,6 +31,9 @@ make  -C "/home/user/build/openwrt-SingleFlight/build_dir/target-arm_cortex-a7+n
 	 				-I${PWD} \
 					-I${PWD}/include  \
 					-DCONFIG_IOCTL_CFG80211 -DRTW_USE_CFG80211_STA_EVENT" \
+	KBUILD_EXTRA_SYMBOLS= \
+	/home/user/build/openwrt-SingleFlight/build_dir/target-arm_cortex-a7+neon-vfpv4_musl_eabi/linux-sunxi_cortexa7/symvers/mac80211.symvers \
+	/home/user/build/openwrt-SingleFlight/build_dir/target-arm_cortex-a7+neon-vfpv4_musl_eabi/linux-sunxi_cortexa7/symvers/cfg80211.symvers \
 	CONFIG_RTL8822EU=m modules
 
-python3 .vscode/generate_compdb.py -O /home/user/build/openwrt-SingleFlight/build_dir/target-arm_cortex-a7+neon-vfpv4_musl_eabi/linux-sunxi_cortexa7/linux-6.6.93
+python3 .vscode/generate_compdb.py -O /home/user/build/openwrt-SingleFlight/build_dir/target-arm_cortex-a7+neon-vfpv4_musl_eabi/linux-sunxi_cortexa7/linux-6.6.93 ${PWD}

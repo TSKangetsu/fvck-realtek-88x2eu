@@ -1,3 +1,4 @@
+#ifdef CONFIG_WIRELESS_EXT
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2021 Realtek Corporation.
@@ -13137,3 +13138,5 @@ int rtw_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 
 	return ret;
 }
+
+#endif
