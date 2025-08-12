@@ -1,0 +1,29 @@
+# Compiled object files
+*.mod
+*.order.cmd
+*.mod.cmd
+*.o.cmd
+*.o
+*.ko
+*.mod.c
+*.symvers
+*.order
+Module.symvers
+modules.order
+
+# Build directories and temporary files
+build/
+tmp/
+*~
+*.bak
+*.swp
+*.swo
+
+# Editor and IDE specific files
+tags
+cscope.*
+compile_commands.json
+.vscode/
+
+# Configuration files
+ifcfg-wlan0
