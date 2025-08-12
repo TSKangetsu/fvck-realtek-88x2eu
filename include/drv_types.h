@@ -1894,7 +1894,9 @@ struct _ADAPTER {
 	u8 ndev_unregistering;
 	int bup;
 	struct net_device_stats stats;
+#ifdef CONFIG_WIRELESS_EXT
 	struct iw_statistics iwstats;
+#endif
 	struct proc_dir_entry *dir_dev;/* for proc directory */
 	struct proc_dir_entry *dir_odm;
 

@@ -15,7 +15,9 @@
 #define _IOCTL_LINUX_C_
 
 #include <drv_types.h>
+#if defined(CONFIG_MP_INCLUDED)
 #include <rtw_mp.h>
+#endif
 #include "../../hal/phydm/phydm_precomp.h"
 #ifdef RTW_HALMAC
 #include "../../hal/hal_halmac.h"
@@ -169,6 +171,7 @@ void indicate_wx_scan_complete_event(_adapter *padapter)
 
 void rtw_indicate_wx_assoc_event(_adapter *padapter)
 {
+#ifdef CONFIG_WIRELESS_EXT
 	union iwreq_data wrqu;
 	struct	mlme_priv *pmlmepriv = &padapter->mlmepriv;
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
@@ -184,6 +187,7 @@ void rtw_indicate_wx_assoc_event(_adapter *padapter)
 	else
 		_rtw_memcpy(wrqu.ap_addr.sa_data, pmlmepriv->cur_network.network.MacAddress, ETH_ALEN);
 
+#endif
 	RTW_PRINT("assoc success\n");
 #ifndef CONFIG_IOCTL_CFG80211
 	wireless_send_event(padapter->pnetdev, SIOCGIWAP, &wrqu, NULL);
@@ -192,15 +196,16 @@ void rtw_indicate_wx_assoc_event(_adapter *padapter)
 
 void rtw_indicate_wx_disassoc_event(_adapter *padapter)
 {
+#ifdef CONFIG_WIRELESS_EXT
 	union iwreq_data wrqu;
 
 	_rtw_memset(&wrqu, 0, sizeof(union iwreq_data));
 
 	wrqu.ap_addr.sa_family = ARPHRD_ETHER;
 	_rtw_memset(wrqu.ap_addr.sa_data, 0, ETH_ALEN);
-
-#ifndef CONFIG_IOCTL_CFG80211
+#endif
 	RTW_PRINT("indicate disassoc\n");
+#ifndef CONFIG_IOCTL_CFG80211
 	wireless_send_event(padapter->pnetdev, SIOCGIWAP, &wrqu, NULL);
 #endif
 }

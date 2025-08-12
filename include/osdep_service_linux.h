@@ -45,7 +45,9 @@
 #include <linux/sched.h>
 #include <linux/etherdevice.h>
 #include <linux/wireless.h>
+#ifdef CONFIG_IOCTL_WEXT 
 #include <net/iw_handler.h>
+#endif
 #include <net/addrconf.h>
 #include <linux/if_arp.h>
 #include <linux/rtnetlink.h>

@@ -399,6 +399,7 @@ struct sta_data {
 #endif
 
 
+#ifdef CONFIG_WIRELESS_EXT
 #if WIRELESS_EXT < 17
 	#define IW_QUAL_QUAL_INVALID   0x10
 	#define IW_QUAL_LEVEL_INVALID  0x20
@@ -406,6 +407,7 @@ struct sta_data {
 	#define IW_QUAL_QUAL_UPDATED   0x1
 	#define IW_QUAL_LEVEL_UPDATED  0x2
 	#define IW_QUAL_NOISE_UPDATED  0x4
+#endif
 #endif
 
 #define IEEE80211_DATA_LEN		2304

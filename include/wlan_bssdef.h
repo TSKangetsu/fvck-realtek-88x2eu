@@ -262,7 +262,7 @@ __inline  static uint get_WLAN_BSSID_EX_sz(WLAN_BSSID_EX *bss)
 }
 
 struct beacon_keys {
-	u8 ssid[IW_ESSID_MAX_SIZE];
+	u8 ssid[32];
 	u32 ssid_len;
 	u8 ch;
 	u8 bw;

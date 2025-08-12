@@ -33,4 +33,4 @@ make  -C "/home/user/build/openwrt-SingleFlight/build_dir/target-arm_cortex-a7+n
 					-DCONFIG_IOCTL_CFG80211 -DRTW_USE_CFG80211_STA_EVENT" \
 	CONFIG_RTL8822EU=m modules
 
-python3 .vscode/generate_compdb.py -O ../openwrt-SingleFlight/build_dir/target-arm_cortex-a7+neon-vfpv4_musl_eabi/linux-sunxi_cortexa7/linux-5.10.176 /home/user/build/v4l2M2MPasser
+python3 .vscode/generate_compdb.py -O /home/user/build/openwrt-SingleFlight/build_dir/target-arm_cortex-a7+neon-vfpv4_musl_eabi/linux-sunxi_cortexa7/linux-6.6.93
