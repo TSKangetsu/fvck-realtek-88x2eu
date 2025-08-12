@@ -1863,6 +1863,7 @@ u16 rtw_os_recv_select_queue(u8 *msdu, enum rtw_rx_llc_hdl llc_hdl)
 
 static u8 is_rtw_ndev(struct net_device *ndev)
 {
+#ifdef CONFIG_WIRELESS_EXT
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
 	return ndev->netdev_ops
 		&& ndev->netdev_ops->ndo_do_ioctl
@@ -1871,6 +1872,8 @@ static u8 is_rtw_ndev(struct net_device *ndev)
 	return ndev->do_ioctl
 		&& ndev->do_ioctl == rtw_ioctl;
 #endif
+#endif
+	return -1;
 }
 
 static int rtw_ndev_notifier_call(struct notifier_block *nb, unsigned long state, void *ptr)
@@ -1954,7 +1957,10 @@ static int rtw_siocdevprivate(struct net_device *dev, struct ifreq *ifr,
 {
 	/* handle cmd(s) between SIOCDEVPRIVATE and SIOCDEVPRIVATE + 15 */
 
+#ifdef CONFIG_WIRELESS_EXT
 	return rtw_ioctl(dev, ifr, cmd);
+#endif
+	return -1;
 }
 #endif
 
@@ -1970,7 +1976,9 @@ static const struct net_device_ops rtw_netdev_ops = {
 #endif
 	.ndo_set_mac_address = rtw_net_set_mac_address,
 	.ndo_get_stats = rtw_net_get_stats,
+#ifdef CONFIG_WIRELESS_EXT
 	.ndo_do_ioctl = rtw_ioctl,
+#endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	.ndo_siocdevprivate = rtw_siocdevprivate,
 #endif

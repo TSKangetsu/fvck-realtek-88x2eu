@@ -1031,31 +1031,31 @@ exit:
 */
 int rtw_cfg80211_check_bss(_adapter *padapter)
 {
-	WLAN_BSSID_EX  *pnetwork = &(padapter->mlmeextpriv.mlmext_info.network);
+	// WLAN_BSSID_EX  *pnetwork = &(padapter->mlmeextpriv.mlmext_info.network);
 	struct cfg80211_bss *bss = NULL;
-	struct ieee80211_channel *notify_channel = NULL;
-	u32 freq;
+	// struct ieee80211_channel *notify_channel = NULL;
+	// u32 freq;
 
-	if (!(pnetwork) || !(padapter->rtw_wdev))
-		return _FALSE;
+// 	if (!(pnetwork) || !(padapter->rtw_wdev))
+// 		return _FALSE;
 
-	freq = rtw_ch2freq(pnetwork->Configuration.DSConfig);
-	notify_channel = ieee80211_get_channel(padapter->rtw_wdev->wiphy, freq);
-	bss = cfg80211_get_bss(padapter->rtw_wdev->wiphy, notify_channel,
-			pnetwork->MacAddress, pnetwork->Ssid.Ssid,
-			pnetwork->Ssid.SsidLength,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
-			pnetwork->InfrastructureMode == Ndis802_11Infrastructure?IEEE80211_BSS_TYPE_ESS:IEEE80211_BSS_TYPE_IBSS,
-			IEEE80211_PRIVACY(pnetwork->Privacy));
-#else
-			pnetwork->InfrastructureMode == Ndis802_11Infrastructure?WLAN_CAPABILITY_ESS:WLAN_CAPABILITY_IBSS, pnetwork->InfrastructureMode == Ndis802_11Infrastructure?WLAN_CAPABILITY_ESS:WLAN_CAPABILITY_IBSS);
-#endif
+// 	freq = rtw_ch2freq(pnetwork->Configuration.DSConfig);
+// 	notify_channel = ieee80211_get_channel(padapter->rtw_wdev->wiphy, freq);
+// 	bss = cfg80211_get_bss(padapter->rtw_wdev->wiphy, notify_channel,
+// 			pnetwork->MacAddress, pnetwork->Ssid.Ssid,
+// 			pnetwork->Ssid.SsidLength,
+// #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
+// 			pnetwork->InfrastructureMode == Ndis802_11Infrastructure?IEEE80211_BSS_TYPE_ESS:IEEE80211_BSS_TYPE_IBSS,
+// 			IEEE80211_PRIVACY(pnetwork->Privacy));
+// #else
+// 			pnetwork->InfrastructureMode == Ndis802_11Infrastructure?WLAN_CAPABILITY_ESS:WLAN_CAPABILITY_IBSS, pnetwork->InfrastructureMode == Ndis802_11Infrastructure?WLAN_CAPABILITY_ESS:WLAN_CAPABILITY_IBSS);
+// #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0)
-	cfg80211_put_bss(padapter->rtw_wdev->wiphy, bss);
-#else
-	cfg80211_put_bss(bss);
-#endif
+// #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0)
+// 	cfg80211_put_bss(padapter->rtw_wdev->wiphy, bss);
+// #else
+// 	cfg80211_put_bss(bss);
+// #endif
 
 	return bss != NULL;
 }
@@ -3041,30 +3041,30 @@ u32 rtw_cfg80211_wait_scan_req_empty(_adapter *adapter, u32 timeout_ms)
 
 void rtw_cfg80211_unlink_bss(_adapter *padapter, struct wlan_network *pnetwork)
 {
-	struct wireless_dev *pwdev = padapter->rtw_wdev;
-	struct wiphy *wiphy = pwdev->wiphy;
-	struct cfg80211_bss *bss = NULL;
+// 	struct wireless_dev *pwdev = padapter->rtw_wdev;
+// 	struct wiphy *wiphy = pwdev->wiphy;
+// 	struct cfg80211_bss *bss = NULL;
 
-	bss = cfg80211_get_bss(wiphy, NULL/*notify_channel*/,
-		pnetwork->network.MacAddress, pnetwork->network.Ssid.Ssid,
-		pnetwork->network.Ssid.SsidLength,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
-		pnetwork->network.InfrastructureMode == Ndis802_11Infrastructure?IEEE80211_BSS_TYPE_ESS:IEEE80211_BSS_TYPE_IBSS,
-		IEEE80211_PRIVACY(pnetwork->network.Privacy));
-#else
-		pnetwork->network.InfrastructureMode == Ndis802_11Infrastructure?WLAN_CAPABILITY_ESS:WLAN_CAPABILITY_IBSS,
-		pnetwork->network.InfrastructureMode == Ndis802_11Infrastructure?WLAN_CAPABILITY_ESS:WLAN_CAPABILITY_IBSS);
-#endif
+// 	bss = cfg80211_get_bss(wiphy, NULL/*notify_channel*/,
+// 		pnetwork->network.MacAddress, pnetwork->network.Ssid.Ssid,
+// 		pnetwork->network.Ssid.SsidLength,
+// #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
+// 		pnetwork->network.InfrastructureMode == Ndis802_11Infrastructure?IEEE80211_BSS_TYPE_ESS:IEEE80211_BSS_TYPE_IBSS,
+// 		IEEE80211_PRIVACY(pnetwork->network.Privacy));
+// #else
+// 		pnetwork->network.InfrastructureMode == Ndis802_11Infrastructure?WLAN_CAPABILITY_ESS:WLAN_CAPABILITY_IBSS,
+// 		pnetwork->network.InfrastructureMode == Ndis802_11Infrastructure?WLAN_CAPABILITY_ESS:WLAN_CAPABILITY_IBSS);
+// #endif
 
-	if (bss) {
-		cfg80211_unlink_bss(wiphy, bss);
-		RTW_INFO("%s(): cfg80211_unlink %s!!\n", __func__, pnetwork->network.Ssid.Ssid);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0)
-		cfg80211_put_bss(padapter->rtw_wdev->wiphy, bss);
-#else
-		cfg80211_put_bss(bss);
-#endif
-	}
+// 	if (bss) {
+// 		cfg80211_unlink_bss(wiphy, bss);
+// 		RTW_INFO("%s(): cfg80211_unlink %s!!\n", __func__, pnetwork->network.Ssid.Ssid);
+// #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0)
+// 		cfg80211_put_bss(padapter->rtw_wdev->wiphy, bss);
+// #else
+// 		cfg80211_put_bss(bss);
+// #endif
+// 	}
 	return;
 }
 
