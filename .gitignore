@@ -1,4 +1,5 @@
 # Compiled object files
+*.cmd
 *.mod
 *.order.cmd
 *.mod.cmd
