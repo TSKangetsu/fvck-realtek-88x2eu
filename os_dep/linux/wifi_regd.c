@@ -22,14 +22,36 @@ void rtw_chset_hook_os_channels(struct rtw_chset *chset, void *os_ref)
 	struct ieee80211_channel *ch;
 	unsigned int i;
 	u32 freq;
+	enum nl80211_band band;
+	struct ieee80211_supported_band *sband;
+	struct ieee80211_channel *chan;
+	
 
 	for (i = 0; i < chset->chs_len; i++) {
 		freq = rtw_bch2freq(chset->chs[i].band, chset->chs[i].ChannelNum);
 		ch = ieee80211_get_channel(wiphy, freq);
+
+		for (band = 0; band < NUM_NL80211_BANDS; band++) {
+			sband = wiphy->bands[band];
+			
+			if (sband)
+			{
+				//
+				RTW_WARN(FUNC_WIPHY_FMT" check sband %d\n", FUNC_WIPHY_ARG(wiphy),sband->n_channels);
+			
+				for (size_t i = 0; i < sband[i].n_channels; i++)
+				{
+					// *chan = sband->channels[i].center_freq;
+					printk("testn %d", sband->channels[i].center_freq);
+				}
+			}
+
+		} 
+
 		if (!ch)
-			RTW_WARN(FUNC_WIPHY_FMT" can't get %s ch%u\n", FUNC_WIPHY_ARG(wiphy), band_str(chset->chs[i].band), chset->chs[i].ChannelNum);
+			RTW_WARN(FUNC_WIPHY_FMT" can't get %s ch%u %d\n", FUNC_WIPHY_ARG(wiphy), band_str(chset->chs[i].band), chset->chs[i].ChannelNum, freq);
 		chset->chs[i].os_chan = ch;
-	}
+	} 
 }
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0))

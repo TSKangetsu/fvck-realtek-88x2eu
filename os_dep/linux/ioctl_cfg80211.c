@@ -501,7 +501,7 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, u8 ch, u8 bw, u8 offset,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0))
 		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, 0, 0, false);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)) || defined(CONFIG_ACK_5_15_LTS_KERNEL)
-		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, 0, 0, false, punct_bitmap);
+		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, 0, 0, false);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
 		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, 0, 0, false);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0))
@@ -528,7 +528,7 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, u8 ch, u8 bw, u8 offset,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0))
 	cfg80211_ch_switch_notify(adapter->pnetdev, &chdef, 0);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)) || defined(CONFIG_ACK_5_15_LTS_KERNEL)
-	cfg80211_ch_switch_notify(adapter->pnetdev, &chdef, 0, punct_bitmap);
+	cfg80211_ch_switch_notify(adapter->pnetdev, &chdef, 0);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 2))
 	cfg80211_ch_switch_notify(adapter->pnetdev, &chdef, 0);
 #else
@@ -587,6 +587,8 @@ struct ieee80211_supported_band *rtw_spt_band_alloc(BAND_TYPE band)
 
 	if (rtw_band_to_nl80211_band(band) == NUM_NL80211_BANDS)
 		goto exit;
+
+	printk("check rtw_band_to_nl80211_band alive");
 
 	if (band == BAND_ON_2_4G) {
 		n_channels = MAX_CHANNEL_NUM_2G;
@@ -7281,6 +7283,9 @@ static void rtw_get_chbwoff_from_cfg80211_chan_def(
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)) */
 
 static int cfg80211_rtw_set_monitor_channel(struct wiphy *wiphy
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0))
+	, struct net_device *ndev
+#endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
 	, struct cfg80211_chan_def *chandef
 #else
@@ -10350,8 +10355,8 @@ static int rtw_cfg80211_init_wiphy_band(_adapter *padapter, struct wiphy *wiphy)
 		#if defined(CONFIG_80211N_HT)
 		rtw_cfg80211_init_ht_capab(padapter, &band->ht_cap, BAND_ON_2_4G, rf_type);
 		#endif
-		band->iftype_data = rtw_iftype_data_common;
-		band->n_iftype_data = ARRAY_SIZE(rtw_iftype_data_common);
+		// band->iftype_data = rtw_iftype_data_common;
+		// band->n_iftype_data = ARRAY_SIZE(rtw_iftype_data_common);
 	}
 #if CONFIG_IEEE80211_BAND_5GHZ
 	if (is_supported_5g(padapter->registrypriv.wireless_mode)) {
@@ -10363,7 +10368,7 @@ static int rtw_cfg80211_init_wiphy_band(_adapter *padapter, struct wiphy *wiphy)
 			}
 			goto exit;
 		}
-		rtw_5g_channels_init(band->channels);
+				rtw_5g_channels_init(band->channels);
 		rtw_5g_rates_init(band->bitrates);
 		#if defined(CONFIG_80211N_HT)
 		rtw_cfg80211_init_ht_capab(padapter, &band->ht_cap, BAND_ON_5G, rf_type);
@@ -10371,8 +10376,8 @@ static int rtw_cfg80211_init_wiphy_band(_adapter *padapter, struct wiphy *wiphy)
 		#if defined(CONFIG_80211AC_VHT) && (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
 		rtw_cfg80211_init_vht_capab(padapter, &band->vht_cap, BAND_ON_5G, rf_type);
 		#endif
-		band->iftype_data = rtw_iftype_data_common;
-		band->n_iftype_data = ARRAY_SIZE(rtw_iftype_data_common);
+		// band->iftype_data = rtw_iftype_data_common;
+		// band->n_iftype_data = ARRAY_SIZE(rtw_iftype_data_common);
 	}
 #endif
 
@@ -11205,6 +11210,7 @@ int rtw_wiphy_register(struct wiphy *wiphy)
 	struct rtw_chset *chset = dvobj_to_chset(wiphy_to_dvobj(wiphy));
 	struct get_chplan_resp *chplan;
 	int ret;
+	enum nl80211_band band;
 
 	RTW_INFO(FUNC_WIPHY_FMT"\n", FUNC_WIPHY_ARG(wiphy));
 
@@ -11213,7 +11219,26 @@ int rtw_wiphy_register(struct wiphy *wiphy)
 	rtw_cfgvendor_attach(wiphy);
 #endif
 
-	rtw_chset_hook_os_channels(chset, wiphy);
+	// rtw_chset_hook_os_channels(chset, wiphy);
+
+
+
+	for (band = 0; band < NUM_NL80211_BANDS; band++) {
+		if(wiphy->bands[band])
+		{
+			printk("check sp: %d", wiphy->bands[band]->n_bitrates);
+			for (size_t i = 0; i < wiphy->bands[band]->n_bitrates; i++) {
+				printk("check rate: %d",wiphy->bands[band]->bitrates[i].bitrate);
+			}
+			//
+			for (size_t i = 0; i < wiphy->bands[band]->n_channels; i++)
+			{
+				printk("%d\n", wiphy->bands[band]->channels[i].band);
+				printk("%d\n", wiphy->bands[band]->channels[i].center_freq);
+				printk("%d\n", wiphy->bands[band]->channels[i].freq_offset);
+			}
+		}	
+	}
 
 	ret = wiphy_register(wiphy);
 	if (ret != 0) {
