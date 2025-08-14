@@ -10301,6 +10301,37 @@ void rtw_cfg80211_init_wdev_data(_adapter *padapter)
 #endif
 }
 
+static const struct ieee80211_sband_iftype_data rtw_iftype_data_common[] = {
+	{
+		.types_mask = BIT(NL80211_IFTYPE_STATION)
+		#ifdef CONFIG_P2P
+			| BIT(NL80211_IFTYPE_P2P_CLIENT)
+			| BIT(NL80211_IFTYPE_P2P_DEVICE)
+		#endif
+		,
+		.he_cap = {.has_he = false},
+		.eht_cap = {.has_eht = false},
+	},
+#ifdef CONFIG_AP_MODE
+	{
+		.types_mask = BIT(NL80211_IFTYPE_AP)
+		#ifdef CONFIG_P2P
+			| BIT(NL80211_IFTYPE_P2P_GO)
+		#endif
+		,
+		.he_cap = {.has_he = false},
+		.eht_cap = {.has_eht = false},
+	},
+#endif
+#ifdef CONFIG_WIFI_MONITOR
+	{
+		.types_mask = BIT(NL80211_IFTYPE_MONITOR),
+		.he_cap = {.has_he = false},
+		.eht_cap = {.has_eht = false},
+	},
+#endif
+};
+
 static int rtw_cfg80211_init_wiphy_band(_adapter *padapter, struct wiphy *wiphy)
 {
 	u8 rf_type;
@@ -10319,6 +10350,8 @@ static int rtw_cfg80211_init_wiphy_band(_adapter *padapter, struct wiphy *wiphy)
 		#if defined(CONFIG_80211N_HT)
 		rtw_cfg80211_init_ht_capab(padapter, &band->ht_cap, BAND_ON_2_4G, rf_type);
 		#endif
+		band->iftype_data = rtw_iftype_data_common;
+		band->n_iftype_data = ARRAY_SIZE(rtw_iftype_data_common);
 	}
 #if CONFIG_IEEE80211_BAND_5GHZ
 	if (is_supported_5g(padapter->registrypriv.wireless_mode)) {
@@ -10338,6 +10371,8 @@ static int rtw_cfg80211_init_wiphy_band(_adapter *padapter, struct wiphy *wiphy)
 		#if defined(CONFIG_80211AC_VHT) && (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
 		rtw_cfg80211_init_vht_capab(padapter, &band->vht_cap, BAND_ON_5G, rf_type);
 		#endif
+		band->iftype_data = rtw_iftype_data_common;
+		band->n_iftype_data = ARRAY_SIZE(rtw_iftype_data_common);
 	}
 #endif
 
