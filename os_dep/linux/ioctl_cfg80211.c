@@ -2875,7 +2875,7 @@ static int cfg80211_rtw_change_iface(struct wiphy *wiphy,
 		if (change && pwdinfo->driver_interface == DRIVER_CFG80211) {
 			#if !RTW_P2P_GROUP_INTERFACE
 			if (rtw_p2p_chk_role(pwdinfo, P2P_ROLE_CLIENT)
-				|| rtw_p2p_chk_role(pwdinfo, P2P_ROLE_GO)
+					|| rtw_p2p_chk_role(pwdinfo, P2P_ROLE_GO)
 			) {
 				/* it means remove GC/GO and change mode from GC/GO to station(P2P DEVICE) */
 				rtw_p2p_set_role(pwdinfo, P2P_ROLE_DEVICE);
@@ -7156,7 +7156,11 @@ static int cfg80211_rtw_del_virtual_intf(struct wiphy *wiphy,
 		pwdev_priv = adapter_wdev_data(adapter);
 
 		if (ndev == pwdev_priv->pmon_ndev) {
-			unregister_netdevice(ndev);
+	/* unregister only monitor device
+	 * because only monitor can be added
+	 */
+	if(wdev->iftype == NL80211_IFTYPE_MONITOR)
+		unregister_netdevice(ndev);
 			pwdev_priv->pmon_ndev = NULL;
 			pwdev_priv->ifname_mon[0] = '\0';
 			RTW_INFO(FUNC_NDEV_FMT" remove monitor ndev\n", FUNC_NDEV_ARG(ndev));
@@ -7186,43 +7190,116 @@ exit:
 }
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
-static int cfg80211_rtw_get_channel(struct wiphy *wiphy,
-	struct wireless_dev *wdev,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 2)) || defined(CONFIG_ACK_5_15_LTS_KERNEL)
-	unsigned int link_id,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 2)) || (RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 0))
+static int cfg80211_rtw_get_channel(struct wiphy *wiphy, struct wireless_dev *wdev, unsigned int link_id, struct cfg80211_chan_def *chandef)
+#else
+static int cfg80211_rtw_get_channel(struct wiphy *wiphy, struct wireless_dev *wdev, struct cfg80211_chan_def *chandef)
 #endif
-	struct cfg80211_chan_def *chandef)
 {
-	_adapter *padapter = wiphy_to_adapter(wiphy);
-	struct mlme_ext_priv *mlmeext = &(padapter->mlmeextpriv);
-	u8 ht_option = 0;
-	u8 report = 0;
-	int retval = 1;
+	_adapter *padapter= wiphy_to_adapter(wiphy);
+	int channel;
+	int control_freq;
+	int center_freq;
+	int center_freq2=0;
+	int width;
+	int band;
+	int bandWidth;
+	int offset;
+  
+	struct dvobj_priv *dvobj;
+	struct net_device *ndev = wdev->netdev;
+	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
 
-	if (MLME_IS_ASOC(padapter)) {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 2)) || defined(CONFIG_ACK_5_15_LTS_KERNEL)
-	RTW_INFO(FUNC_ADPT_FMT" link_id:%d\n", FUNC_ADPT_ARG(padapter), link_id);
-#endif
+	if (!ndev)
+  		return -ENODEV;
+	offset = rtw_get_oper_choffset(padapter);
+	bandWidth = rtw_get_oper_bw(padapter);
+	channel = rtw_get_oper_ch(padapter);
+	if(channel >= 1){
+		if(channel <= 14)
+			band = NL80211_BAND_2GHZ;
+		else
+			band =  NL80211_BAND_5GHZ;
 
-#ifdef CONFIG_80211N_HT
-		ht_option = padapter->mlmepriv.htpriv.ht_option;
-#endif /* CONFIG_80211N_HT */
-		report = 1;
-	} else if (MLME_IS_MONITOR(padapter)) {
-		/* monitor mode always set to HT
-		   we don't support sniffer No HT */
-		ht_option = 1;
-		report = 1;
+		control_freq =  ieee80211_channel_to_frequency(channel, band);
+
+		switch(bandWidth){
+		case CHANNEL_WIDTH_5:
+                       width = NL80211_CHAN_WIDTH_5;
+                       center_freq = control_freq;
+                       break;
+		case CHANNEL_WIDTH_10:
+		       width = NL80211_CHAN_WIDTH_10;
+                       center_freq = control_freq;
+                       break;
+		case CHANNEL_WIDTH_20:
+			RTW_INFO("%s width 20\n", __func__);
+			width = NL80211_CHAN_WIDTH_20;
+			center_freq = control_freq;
+			break;
+		case CHANNEL_WIDTH_40:
+			RTW_INFO("%s width 40\n", __func__);
+			width = NL80211_CHAN_WIDTH_40;
+			if(offset == HAL_PRIME_CHNL_OFFSET_LOWER){
+				center_freq = control_freq +10;
+			}else{
+				center_freq = control_freq -10;
+			}
+			break;
+		case CHANNEL_WIDTH_80:
+			RTW_INFO("%s width 80\n", __func__);
+			width = NL80211_CHAN_WIDTH_80;
+			if(offset==HAL_PRIME_CHNL_OFFSET_LOWER){
+				center_freq = control_freq +30;
+			}else{
+				center_freq = control_freq -30;
+			}
+			break;
+		case CHANNEL_WIDTH_160:
+			RTW_INFO("%s width 160\n", __func__);
+			width = NL80211_CHAN_WIDTH_160;
+			if(offset == HAL_PRIME_CHNL_OFFSET_LOWER){
+				center_freq = control_freq +50;
+			}else{
+				center_freq = control_freq -50;
+			}
+			break;
+    		case CHANNEL_WIDTH_80_80:
+			RTW_INFO("%s width 80x80\n", __func__);
+			width = NL80211_CHAN_WIDTH_80P80;
+			if(offset==HAL_PRIME_CHNL_OFFSET_LOWER){
+				center_freq = control_freq +30;
+				center_freq2=center_freq+80;
+			}else{
+				center_freq = control_freq -30;
+				center_freq2=center_freq-80;
+			}
+			break;
+    		case CHANNEL_WIDTH_MAX:
+			RTW_INFO("%s width max\n", __func__);
+			width = NL80211_CHAN_WIDTH_160;
+			break;
+		}
+		chandef->chan = ieee80211_get_channel(wiphy, control_freq);
+		if(chandef->chan == NULL) {
+			chandef->chan = ieee80211_get_channel(wiphy, ieee80211_channel_to_frequency(channel, band));
+			RTW_INFO("%s chan null\n", __func__);
+			if(chandef->chan == NULL) {
+				RTW_INFO("%s chan null\n", __func__);
+				return -EINVAL;
+			}
+		}
+		chandef->width = width;
+		chandef->center_freq1 = center_freq;
+		chandef->center_freq2 = center_freq2;  
+		RTW_INFO("%s : channel %d width %d freq1 %d freq2 %d center_freq %d offset %d\n", __func__, 
+			channel, width, chandef->center_freq1, chandef->center_freq2, chandef->chan->center_freq,
+			rtw_get_oper_choffset(padapter)
+		);
+	}else{
+		return -EINVAL;
 	}
-
-	if (report) {
-		rtw_chbw_to_cfg80211_chan_def(wiphy, chandef,
-			mlmeext->cur_channel, mlmeext->cur_bwmode,
-			mlmeext->cur_ch_offset, ht_option);
-		retval = 0;
-	}
-
-	return retval;
+	return 0;
 }
 
 static void rtw_get_chbwoff_from_cfg80211_chan_def(
@@ -11022,25 +11099,23 @@ static struct cfg80211_ops rtw_cfg80211_ops = {
 #endif /*CONFIG_GTK_OL*/
 	.get_station = cfg80211_rtw_get_station,
 	.scan = cfg80211_rtw_scan,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0))
-	.abort_scan = cfg80211_rtw_abort_scan,
-#endif
 	.set_wiphy_params = cfg80211_rtw_set_wiphy_params,
 	.connect = cfg80211_rtw_connect,
 	.disconnect = cfg80211_rtw_disconnect,
 	.join_ibss = cfg80211_rtw_join_ibss,
 	.leave_ibss = cfg80211_rtw_leave_ibss,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 31))
 	.set_tx_power = cfg80211_rtw_set_txpower,
 	.get_tx_power = cfg80211_rtw_get_txpower,
-#endif
 	.set_power_mgmt = cfg80211_rtw_set_power_mgmt,
 	.set_pmksa = cfg80211_rtw_set_pmksa,
 	.del_pmksa = cfg80211_rtw_del_pmksa,
 	.flush_pmksa = cfg80211_rtw_flush_pmksa,
+	// .set_cqm_rssi_config = cfg80211_rtw_set_cqm_rssi_config,
 
+#ifdef RTW_VIRTUAL_INT
 	.add_virtual_intf = cfg80211_rtw_add_virtual_intf,
 	.del_virtual_intf = cfg80211_rtw_del_virtual_intf,
+#endif
 
 #ifdef CONFIG_AP_MODE
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)) && !defined(COMPAT_KERNEL_RELEASE)
@@ -11061,9 +11136,7 @@ static struct cfg80211_ops rtw_cfg80211_ops = {
 	.del_station = cfg80211_rtw_del_station,
 	.change_station = cfg80211_rtw_change_station,
 	.dump_station = cfg80211_rtw_dump_station,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 	.change_bss = cfg80211_rtw_change_bss,
-#endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
 	.set_txq_params = cfg80211_rtw_set_txq_params,
 #endif
@@ -11093,17 +11166,15 @@ static struct cfg80211_ops rtw_cfg80211_ops = {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
 	.set_monitor_channel = cfg80211_rtw_set_monitor_channel,
 #endif
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
-	.get_channel = cfg80211_rtw_get_channel,
-#endif
 
+#ifdef CONFIG_P2P
 	.remain_on_channel = cfg80211_rtw_remain_on_channel,
 	.cancel_remain_on_channel = cfg80211_rtw_cancel_remain_on_channel,
-
-#if defined(CONFIG_P2P) && defined(RTW_DEDICATED_P2P_DEVICE)
+	#if defined(RTW_DEDICATED_P2P_DEVICE)
 	.start_p2p_device = cfg80211_rtw_start_p2p_device,
 	.stop_p2p_device = cfg80211_rtw_stop_p2p_device,
-#endif
+	#endif
+#endif /* CONFIG_P2P */
 
 #ifdef CONFIG_RTW_80211R
 	.update_ft_ies = cfg80211_rtw_update_ft_ies,
@@ -11111,10 +11182,10 @@ static struct cfg80211_ops rtw_cfg80211_ops = {
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE)
 	.mgmt_tx = cfg80211_rtw_mgmt_tx,
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0))
-	.mgmt_frame_register = cfg80211_rtw_mgmt_frame_register,
-#else
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,8,0)) || (RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(8,0))
 	.update_mgmt_frame_registrations = cfg80211_rtw_update_mgmt_frame_register,
+#else
+	.mgmt_frame_register = cfg80211_rtw_mgmt_frame_register,
 #endif
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 34) && LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 35))
 	.action = cfg80211_rtw_mgmt_tx,
@@ -11137,16 +11208,12 @@ static struct cfg80211_ops rtw_cfg80211_ops = {
 #if defined(CONFIG_RTW_HOSTAPD_ACS) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 33))
 	.dump_survey = rtw_hostapd_acs_dump_survey,
 #endif
-#if (KERNEL_VERSION(4, 17, 0) <= LINUX_VERSION_CODE) \
-    || defined(CONFIG_KERNEL_PATCH_EXTERNAL_AUTH)
+#if (KERNEL_VERSION(4, 17, 0) <= LINUX_VERSION_CODE)
 	.external_auth = cfg80211_rtw_external_auth,
 #endif
-#ifdef CONFIG_AP_MODE
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0))
-	.channel_switch = cfg80211_rtw_channel_switch,
-#endif
-#endif /* #ifdef CONFIG_AP_MODE */
+	.get_channel = cfg80211_rtw_get_channel,
 };
+
 
 struct wiphy *rtw_wiphy_alloc(_adapter *padapter, struct device *dev)
 {
@@ -11223,22 +11290,22 @@ int rtw_wiphy_register(struct wiphy *wiphy)
 
 
 
-	for (band = 0; band < NUM_NL80211_BANDS; band++) {
-		if(wiphy->bands[band])
-		{
-			printk("check sp: %d", wiphy->bands[band]->n_bitrates);
-			for (size_t i = 0; i < wiphy->bands[band]->n_bitrates; i++) {
-				printk("check rate: %d",wiphy->bands[band]->bitrates[i].bitrate);
-			}
-			//
-			for (size_t i = 0; i < wiphy->bands[band]->n_channels; i++)
-			{
-				printk("%d\n", wiphy->bands[band]->channels[i].band);
-				printk("%d\n", wiphy->bands[band]->channels[i].center_freq);
-				printk("%d\n", wiphy->bands[band]->channels[i].freq_offset);
-			}
-		}	
-	}
+	// for (band = 0; band < NUM_NL80211_BANDS; band++) {
+	// 	if(wiphy->bands[band])
+	// 	{
+	// 		printk("check sp: %d", wiphy->bands[band]->n_bitrates);
+	// 		for (size_t i = 0; i < wiphy->bands[band]->n_bitrates; i++) {
+	// 			printk("check rate: %d",wiphy->bands[band]->bitrates[i].bitrate);
+	// 		}
+	// 		//
+	// 		for (size_t i = 0; i < wiphy->bands[band]->n_channels; i++)
+	// 		{
+	// 			printk("%d\n", wiphy->bands[band]->channels[i].band);
+	// 			printk("%d\n", wiphy->bands[band]->channels[i].center_freq);
+	// 			printk("%d\n", wiphy->bands[band]->channels[i].freq_offset);
+	// 		}
+	// 	}	
+	// }
 
 	ret = wiphy_register(wiphy);
 	if (ret != 0) {

@@ -1879,6 +1879,7 @@ static u8 is_rtw_ndev(struct net_device *ndev)
 static int rtw_ndev_notifier_call(struct notifier_block *nb, unsigned long state, void *ptr)
 {
 	struct net_device *ndev;
+	_adapter *adapter;
 
 	if (ptr == NULL)
 		return NOTIFY_DONE;
@@ -1892,6 +1893,8 @@ static int rtw_ndev_notifier_call(struct notifier_block *nb, unsigned long state
 	if (ndev == NULL)
 		return NOTIFY_DONE;
 
+	adapter = rtw_netdev_priv(ndev);
+
 	if (!is_rtw_ndev(ndev))
 		return NOTIFY_DONE;
 
@@ -1900,13 +1903,15 @@ static int rtw_ndev_notifier_call(struct notifier_block *nb, unsigned long state
 	switch (state) {
 	case NETDEV_CHANGENAME:
 		rtw_adapter_proc_replace(ndev);
+		strncpy(adapter->old_ifname, ndev->name, IFNAMSIZ);
+		adapter->old_ifname[IFNAMSIZ-1] = 0;
 		break;
 	#ifdef CONFIG_NEW_NETDEV_HDL
 	case NETDEV_PRE_UP :
 		{
 			_adapter *adapter = rtw_netdev_priv(ndev);
 
-			(void) rtw_pwr_wakeup(adapter);
+			rtw_pwr_wakeup(adapter);
 		}
 		break;
 	#endif
@@ -2335,10 +2340,6 @@ void rtw_os_ndev_unregister(_adapter *adapter)
 
 	netdev = adapter->pnetdev;
 
-#if defined(CONFIG_IOCTL_CFG80211)
-	rtw_cfg80211_ndev_res_unregister(adapter);
-#endif
-
 	if ((adapter->DriverState != DRIVER_DISAPPEAR) && netdev) {
 		struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
 		u8 rtnl_lock_needed = rtw_rtnl_lock_needed(dvobj);
@@ -2348,6 +2349,9 @@ void rtw_os_ndev_unregister(_adapter *adapter)
 		else
 			unregister_netdevice(netdev);
 	}
+#if defined(CONFIG_IOCTL_CFG80211)
+       		 rtw_cfg80211_ndev_res_unregister(adapter);
+#endif
 
 #if defined(CONFIG_IOCTL_CFG80211) && !defined(RTW_SINGLE_WIPHY)
 #ifdef CONFIG_RFKILL_POLL
