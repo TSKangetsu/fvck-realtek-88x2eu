@@ -5015,7 +5015,13 @@ s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 
 no_rtap_tx:
 #endif
+	int rty_cnt = 0;
 	pmgntframe = alloc_mgtxmitframe(pxmitpriv);
+	while(pmgntframe == NULL && rty_cnt < 40) {
+		rty_cnt++;
+		rtw_msleep_os(5);
+		pmgntframe = alloc_mgtxmitframe(pxmitpriv);
+	}
 	if (pmgntframe == NULL) {
 		rtw_udelay_os(500);
 		goto fail;
