@@ -1166,8 +1166,9 @@ static void update_attrib_phy_info(_adapter *padapter, struct pkt_attrib *pattri
 	/* ht_en, init rate, ,bw, ch_offset, sgi */
 
 	pattrib->raid = psta->cmn.ra_info.rate_id;
-
+	
 	bw = rtw_get_tx_bw_mode(padapter, psta);
+	// printk("debug: %d %d\n", bw, mlmeext->cur_bwmode);
 	pattrib->bwmode = rtw_min(bw, mlmeext->cur_bwmode);
 	pattrib->sgi = query_ra_short_GI(psta, pattrib->bwmode);
 
@@ -5047,7 +5048,7 @@ s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 
 	pattrib->pktlen = skb->len;
 
-	printk("**** rt mcs %x rate %x raid %d sgi %d bwidth %d ldpc %d stbc %d txflags %x\n", fixed_rate, pattrib->rate, pattrib->raid, sgi, bwidth, ldpc, stbc, txflags);
+	// printk("**** rt mcs %x rate %x raid %d sgi %d bwidth %d ldpc %d stbc %d txflags %x\n", fixed_rate, pattrib->rate, pattrib->raid, sgi, bwidth, ldpc, stbc, txflags);
 	pattrib->rate = fixed_rate;
 	pattrib->sgi = sgi;
 	pattrib->bwmode = bwidth; // 0-20 MHz, 1-40 MHz, 2-80 MHz
