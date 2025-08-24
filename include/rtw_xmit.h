@@ -509,6 +509,7 @@ struct pkt_attrib {
 	u8 dtim_period;
 	u8 tim_ie_offset;
 #endif
+	u8 inject;
 };
 
 #ifdef CONFIG_RTW_WDS

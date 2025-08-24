@@ -1166,8 +1166,9 @@ static void update_attrib_phy_info(_adapter *padapter, struct pkt_attrib *pattri
 	/* ht_en, init rate, ,bw, ch_offset, sgi */
 
 	pattrib->raid = psta->cmn.ra_info.rate_id;
-
+	
 	bw = rtw_get_tx_bw_mode(padapter, psta);
+	// printk("debug: %d %d\n", bw, mlmeext->cur_bwmode);
 	pattrib->bwmode = rtw_min(bw, mlmeext->cur_bwmode);
 	pattrib->sgi = query_ra_short_GI(psta, pattrib->bwmode);
 
@@ -4879,189 +4880,204 @@ static void do_queue_select(_adapter	*padapter, struct pkt_attrib *pattrib)
  *	<0	fail
  */
  #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24))
+
+int rtw_ieee80211_radiotap_iterator_next(struct ieee80211_radiotap_iterator *iterator);
+int rtw_ieee80211_radiotap_iterator_init(
+	struct ieee80211_radiotap_iterator *iterator,
+	struct ieee80211_radiotap_header *radiotap_header,
+	int max_length, const struct ieee80211_radiotap_vendor_namespaces *vns);
+ static struct xmit_frame* monitor_alloc_mgtxmitframe(struct xmit_priv *pxmitpriv) {
+	int tries;
+	int delay = 300;
+	struct xmit_frame *pmgntframe = NULL;
+
+	for(tries = 0; tries < 4; tries++) {
+		if(unlikely(tries > 0))
+		{
+			rtw_udelay_os(delay);
+			delay += delay/2;
+		}
+		pmgntframe = alloc_mgtxmitframe(pxmitpriv);
+		if(pmgntframe != NULL) break;
+	}
+	return pmgntframe;
+}
+
 s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 {
-	_adapter *padapter = (_adapter *)rtw_netdev_priv(ndev);
-	struct rtw_ieee80211_hdr *pwlanhdr;
-	struct pkt_attrib *pattrib;
-	struct xmit_frame *pmgntframe;
-	struct mlme_ext_priv *pmlmeext = &(padapter->mlmeextpriv);
-	struct xmit_priv *pxmitpriv = &(padapter->xmitpriv);
-	unsigned char *pframe;
+	int ret = 0;
+	int rtap_len;
+	int qos_len = 0;
+	int dot11_hdr_len = 24;
+	int snap_len = 6;
+	unsigned char *pdata;
 	u16 frame_ctl;
-	u8 retry_ctrl = _FALSE;
-	u8 fixed_rate = MGN_1M;
-	u8 sgi = 0;
-	u8 bwidth = CHANNEL_WIDTH_20;
-	u8 ldpc = 0;
-	u8 stbc = 0;
-#ifndef CONFIG_CUSTOMER_ALIBABA_GENERAL
+	unsigned char src_mac_addr[6];
+	unsigned char dst_mac_addr[6];
+	struct rtw_ieee80211_hdr *dot11_hdr;
 	struct ieee80211_radiotap_header *rtap_hdr;
 	struct ieee80211_radiotap_iterator iterator;
-	int rtap_len;
-	int ret;
-#endif
+	u8 fixed_rate = MGN_1M, sgi = 0, bwidth = 0, ldpc = 0, stbc = 0;
+	u16 txflags = 0;
+	_adapter *padapter = (_adapter *)rtw_netdev_priv(ndev);
+
+	struct xmit_frame		*pmgntframe;
+	struct pkt_attrib	*pattrib;
+	unsigned char	*pframe;
+	struct rtw_ieee80211_hdr *pwlanhdr;
+	struct xmit_priv	*pxmitpriv = &(padapter->xmitpriv);
+	struct mlme_ext_priv	*pmlmeext = &(padapter->mlmeextpriv);
+	u8 *buf = skb->data;
+	u32 len = skb->len;
+	u8 category, action;
+	int type = -1;
+
+	if (unlikely(!skb))
+		goto fail;
 
 	rtw_mstat_update(MSTAT_TYPE_SKB, MSTAT_ALLOC_SUCCESS, skb->truesize);
 
-#ifndef CONFIG_CUSTOMER_ALIBABA_GENERAL
 	if (unlikely(skb->len < sizeof(struct ieee80211_radiotap_header)))
-		goto no_rtap_tx;
+		goto fail;
 
 	rtap_hdr = (struct ieee80211_radiotap_header *)skb->data;
 	if (unlikely(rtap_hdr->it_version))
-		goto no_rtap_tx;
+		goto fail;
 
 	rtap_len = ieee80211_get_radiotap_len(skb->data);
 	if (unlikely(skb->len < rtap_len))
-		goto no_rtap_tx;
+		goto fail;
 
-	ret = ieee80211_radiotap_iterator_init(&iterator, rtap_hdr, skb->len, NULL);
+	pmgntframe = monitor_alloc_mgtxmitframe(pxmitpriv);
+	if (unlikely(pmgntframe == NULL)) {
+		DBG_COUNTER(padapter->tx_logs.core_tx_err_pxmitframe);
+		pxmitpriv->tx_drop++;
+		rtw_skb_free(skb);
+		return NETDEV_TX_OK;
+	}
+
+	ret = rtw_ieee80211_radiotap_iterator_init(&iterator, rtap_hdr, skb->len, NULL);
 	while (!ret) {
-		ret = ieee80211_radiotap_iterator_next(&iterator);
+		ret = rtw_ieee80211_radiotap_iterator_next(&iterator);
 
 		if (ret)
 			continue;
 
 		/* see if this argument is something we can use */
 		switch (iterator.this_arg_index) {
-		case IEEE80211_RADIOTAP_RATE:
-			/* This rate is in units of 500kb, but we did not check
-			   if this value is in the enum MGN_RATE. */
+
+		case IEEE80211_RADIOTAP_RATE:		/* u8 */
 			fixed_rate = *iterator.this_arg;
 			break;
 
-		case IEEE80211_RADIOTAP_TX_FLAGS: {
-			u16 txflags;
+		case IEEE80211_RADIOTAP_TX_FLAGS:
 			txflags = get_unaligned_le16(iterator.this_arg);
-			if ((txflags & IEEE80211_RADIOTAP_F_TX_NOACK) == 0)
-				retry_ctrl = _TRUE;
 			break;
-		}
 
-		case IEEE80211_RADIOTAP_MCS: {
-			u8 mcs_known = iterator.this_arg[0];
-			u8 mcs_flags = iterator.this_arg[1];
-			if (!(mcs_known & IEEE80211_RADIOTAP_MCS_HAVE_MCS))
-				break;
-
-			fixed_rate = iterator.this_arg[2] & 0x7f;
-
-			if (mcs_known & IEEE80211_RADIOTAP_MCS_HAVE_MCS) {
+		case IEEE80211_RADIOTAP_MCS: {		/* u8,u8,u8 */
+			u8 mcs_have = iterator.this_arg[0];
+			if (mcs_have & IEEE80211_RADIOTAP_MCS_HAVE_MCS) {
 				fixed_rate = iterator.this_arg[2] & 0x7f;
-				if (fixed_rate > 31)
+				if(fixed_rate > 31)
 					fixed_rate = 0;
 				fixed_rate += MGN_MCS0;
 			}
-			if ((mcs_known & IEEE80211_RADIOTAP_MCS_HAVE_GI) &&
-			    (mcs_flags & IEEE80211_RADIOTAP_MCS_SGI))
+			if ((mcs_have & 4) && 
+			    (iterator.this_arg[1] & 4))
 				sgi = 1;
-			if ((mcs_known & IEEE80211_RADIOTAP_MCS_HAVE_BW) &&
-			    (mcs_flags & IEEE80211_RADIOTAP_MCS_BW_40))
-				bwidth = CHANNEL_WIDTH_40;
-			if ((mcs_known & IEEE80211_RADIOTAP_MCS_HAVE_FEC) &&
-			    (mcs_flags & IEEE80211_RADIOTAP_MCS_FEC_LDPC))
+			if ((mcs_have & 1) && 
+			    (iterator.this_arg[1] & 1))
+				bwidth = 1;
+			if ((mcs_have & 0x10) && 
+			    (iterator.this_arg[1] & 0x10))
 				ldpc = 1;
-			if ((mcs_known & IEEE80211_RADIOTAP_MCS_HAVE_STBC)) {
-				stbc = (mcs_flags &
-					IEEE80211_RADIOTAP_MCS_STBC_MASK) >>
-				       IEEE80211_RADIOTAP_MCS_STBC_SHIFT;
-			}
-			break;
+			if ((mcs_have & 0x20))
+				stbc = (iterator.this_arg[1] >> 5) & 3;	
 		}
+		break;
 
 		case IEEE80211_RADIOTAP_VHT: {
-			u16 vht_known = get_unaligned_le16(iterator.this_arg);
-			u8 vht_flags = iterator.this_arg[2];
+		/* u16 known, u8 flags, u8 bandwidth, u8 mcs_nss[4], u8 coding, u8 group_id, u16 partial_aid */
+			u8 known = iterator.this_arg[0];
+			u8 flags = iterator.this_arg[2];
 			unsigned int mcs, nss;
-
-			if ((vht_known & IEEE80211_RADIOTAP_VHT_KNOWN_GI) &&
-			    (vht_flags & IEEE80211_RADIOTAP_VHT_FLAG_SGI))
+			if((known & 4) && (flags & 4))
 				sgi = 1;
-			if (vht_known &
-			    IEEE80211_RADIOTAP_VHT_KNOWN_BANDWIDTH) {
-				bwidth = iterator.this_arg[3] & 0x1f;
-				if(bwidth >= 1 && bwidth <= 3)
-					bwidth = CHANNEL_WIDTH_40;
-				else if(bwidth >= 4 && bwidth <= 10)
-					bwidth = CHANNEL_WIDTH_80;
-				else
-					bwidth = CHANNEL_WIDTH_20;
-			}
-			if((vht_known & IEEE80211_RADIOTAP_VHT_KNOWN_STBC) &&
-			   (vht_flags & IEEE80211_RADIOTAP_VHT_FLAG_STBC))
+			if((known & 1) && (flags & 1))
 				stbc = 1;
-			if (vht_known & IEEE80211_RADIOTAP_VHT_KNOWN_LDPC_EXTRA_OFDM_SYM &&
-			    vht_flags & IEEE80211_RADIOTAP_VHT_FLAG_LDPC_EXTRA_OFDM_SYM &&
-			    iterator.this_arg[8] & 0x0f)
+			if(known & 0x40) {
+				bwidth = iterator.this_arg[3] & 0x1f;
+				if(bwidth>=1 && bwidth<=3)
+					bwidth = 1; // 40 MHz
+				else if(bwidth>=4 && bwidth<=10)
+					bwidth = 2;	// 80 MHz
+				else
+					bwidth = 0; // 20 MHz
+			}
+			if(iterator.this_arg[8] & 1)
 				ldpc = 1;
-			mcs = (iterator.this_arg[4] >> 4) & 0x0f;
+			mcs = (iterator.this_arg[4]>>4) & 0x0f;
 			nss = iterator.this_arg[4] & 0x0f;
 			if(nss > 0) {
 				if(nss > 4) nss = 4;
 				if(mcs > 9) mcs = 9;
-				fixed_rate = MGN_VHT1SS_MCS0 + ((nss - 1) * 10 + mcs);
+				fixed_rate = MGN_VHT1SS_MCS0 + ((nss-1)*10 + mcs);
 			}
-			break;
 		}
+		break;
 
 		default:
 			break;
 		}
 	}
-
 	/* Skip the ratio tap header */
 	skb_pull(skb, rtap_len);
 
-no_rtap_tx:
-#endif
-	int rty_cnt = 0;
-	pmgntframe = alloc_mgtxmitframe(pxmitpriv);
-	while(pmgntframe == NULL && rty_cnt < 40) {
-		rty_cnt++;
-		rtw_msleep_os(5);
-		pmgntframe = alloc_mgtxmitframe(pxmitpriv);
-	}
-	if (pmgntframe == NULL) {
-		rtw_udelay_os(500);
-		goto fail;
-	}
-
-	_rtw_memset(pmgntframe->buf_addr, 0, WLANHDR_OFFSET + TXDESC_OFFSET);
-	pframe = (u8 *)(pmgntframe->buf_addr) + TXDESC_OFFSET;
-
-	skb_copy_bits(skb, 0, (void*)pframe, skb->len);
+//	dot11_hdr = (struct ieee80211_hdr *)skb->data;
+//	frame_ctl = le16_to_cpu(dot11_hdr->frame_control);
+	/* Check if the QoS bit is set */
 
 	pattrib = &pmgntframe->attrib;
+	update_monitor_frame_attrib(padapter, pattrib);
 
-	/* Check DATA/MGNT frames */
-	pwlanhdr = (struct rtw_ieee80211_hdr *)pframe;
-	frame_ctl = le16_to_cpu(pwlanhdr->frame_ctl);
-	if ((frame_ctl & RTW_IEEE80211_FCTL_FTYPE) == RTW_IEEE80211_FTYPE_DATA)
-		update_monitor_frame_attrib(padapter, &pmgntframe->attrib);
-	else
-		update_mgntframe_attrib(padapter, &pmgntframe->attrib);
+	_rtw_memset(pmgntframe->buf_addr, 0, WLANHDR_OFFSET + TXDESC_OFFSET);
+
+	pframe = (u8 *)(pmgntframe->buf_addr) + TXDESC_OFFSET;
+
+	_rtw_memcpy(pframe, (void*)skb->data, skb->len);
+
 	pattrib->pktlen = skb->len;
+
+	// printk("**** rt mcs %x rate %x raid %d sgi %d bwidth %d ldpc %d stbc %d txflags %x\n", fixed_rate, pattrib->rate, pattrib->raid, sgi, bwidth, ldpc, stbc, txflags);
 	pattrib->rate = fixed_rate;
-	pattrib->retry_ctrl = retry_ctrl;
+	pattrib->sgi = sgi;
+	pattrib->bwmode = bwidth; // 0-20 MHz, 1-40 MHz, 2-80 MHz
+	pattrib->ldpc = ldpc;
+	pattrib->stbc = stbc;
+	pattrib->retry_ctrl = (txflags & 0x08)?_FALSE:_TRUE;
+	// printk("retry %d", pattrib->retry_ctrl);
+	pattrib->inject = 0xa5;
+
+	pwlanhdr = (struct rtw_ieee80211_hdr *)pframe;
+
 	pmlmeext->mgnt_seq = GetSequence(pwlanhdr);
 	pattrib->seqnum = pmlmeext->mgnt_seq;
 	pmlmeext->mgnt_seq++;
+
 	pattrib->last_txcmdsz = pattrib->pktlen;
-	pattrib->sgi = sgi;
-	pattrib->bwmode = bwidth;
-	pattrib->ldpc = ldpc;
-	pattrib->stbc = stbc;
-
-	dump_mgntframe(padapter, pmgntframe);
-
+	ret = dump_mgntframe(padapter, pmgntframe);
+	if (unlikely(ret != _SUCCESS))
+	{
+		pxmitpriv->tx_drop++;
+		goto fail;
+	}
 	DBG_COUNTER(padapter->tx_logs.core_tx);
 	pxmitpriv->tx_pkts++;
 	pxmitpriv->tx_bytes += skb->len;
 
 fail:
 	rtw_skb_free(skb);
-	return 0;
+	return NETDEV_TX_OK;
 }
 #endif
 
