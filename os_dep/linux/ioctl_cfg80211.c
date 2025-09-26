@@ -588,8 +588,6 @@ struct ieee80211_supported_band *rtw_spt_band_alloc(BAND_TYPE band)
 	if (rtw_band_to_nl80211_band(band) == NUM_NL80211_BANDS)
 		goto exit;
 
-	printk("check rtw_band_to_nl80211_band alive");
-
 	if (band == BAND_ON_2_4G) {
 		n_channels = MAX_CHANNEL_NUM_2G;
 		n_bitrates = RTW_G_RATES_NUM;
@@ -5244,6 +5242,12 @@ static int rtw_cfg80211_add_monitor_if(_adapter *padapter, char *name, struct ne
 		ret = -ENOMEM;
 		goto out;
 	}
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0))
+	mon_ndev->min_mtu = WLAN_MIN_ETHFRM_LEN;
+	mon_ndev->mtu = WLAN_DATA_MAXLEN;
+	mon_ndev->max_mtu = WLAN_DATA_MAXLEN;
+#endif
 
 	mon_ndev->type = ARPHRD_IEEE80211_RADIOTAP;
 	strncpy(mon_ndev->name, name, IFNAMSIZ);
